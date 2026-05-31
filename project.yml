@@ -8,8 +8,10 @@ options:
 
 settings:
   base:
-    SWIFT_VERSION: "6.0"
-    SWIFT_STRICT_CONCURRENCY: complete
+    # Мова Swift 5 (async/await, actors, @Observable працюють). Строгий режим Swift 6
+    # можна ввімкнути пізніше після міграції ізоляції.
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 

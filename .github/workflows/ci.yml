@@ -38,4 +38,10 @@ jobs:
             -project GridMonitor.xcodeproj \
             -scheme GridMonitor \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log
+
+      - name: Compile errors (only on failure)
+        if: failure()
+        run: |
+          echo "=== ERRORS ==="
+          grep -nE "error:" build.log | sort -u | head -100 || echo "no 'error:' lines found"
