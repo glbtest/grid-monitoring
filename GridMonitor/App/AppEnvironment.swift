@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import SwiftData
 
 /// Простий DI-контейнер застосунку. Тримає мережевий клієнт, менеджер сесії та нотифікатор.
 ///
