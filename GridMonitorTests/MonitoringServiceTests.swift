@@ -11,6 +11,21 @@ actor SpyNotifier: NotificationScheduling {
     func sentEvents() -> [GridEventType] { sent }
 }
 
+/// In-memory сховище замість Keychain — Keychain у CI недоступний (errSecMissingEntitlement).
+final class InMemorySecureStore: SecureStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [String: String] = [:]
+    func set(_ value: String, for account: String) throws {
+        lock.lock(); defer { lock.unlock() }; storage[account] = value
+    }
+    func get(_ account: String) throws -> String? {
+        lock.lock(); defer { lock.unlock() }; return storage[account]
+    }
+    func delete(_ account: String) throws {
+        lock.lock(); defer { lock.unlock() }; storage[account] = nil
+    }
+}
+
 @MainActor
 struct MonitoringServiceTests {
 
@@ -22,7 +37,7 @@ struct MonitoringServiceTests {
 
     @Test func recordsEventAndNotifiesOnTransition() async throws {
         let client = MockFSolarAPIClient()
-        let session = SessionManager(client: client)
+        let session = SessionManager(client: client, keychain: InMemorySecureStore())
         try await session.logIn(Credentials(username: "u", password: "p"))
         let context = try makeContext()
         let notifier = SpyNotifier()

@@ -1,9 +1,17 @@
 import Foundation
 import Security
 
+/// Абстракція безпечного сховища секретів — щоб у тестах підставляти in-memory варіант
+/// замість справжнього Keychain (який потребує entitlements і недоступний у CI).
+protocol SecureStore: Sendable {
+    func set(_ value: String, for account: String) throws
+    func get(_ account: String) throws -> String?
+    func delete(_ account: String) throws
+}
+
 /// Тонка обгортка над Security.framework для зберігання секретів (токен, облікові дані).
 /// Жодних секретів у UserDefaults — лише Keychain.
-struct KeychainStore {
+struct KeychainStore: SecureStore {
     let service: String
 
     init(service: String = "com.gridmonitor.fsolar") {

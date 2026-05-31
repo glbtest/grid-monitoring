@@ -4,7 +4,7 @@ import Foundation
 /// Облікові дані зберігаються в Keychain, щоб мовчки оновлювати сесію при потребі.
 actor SessionManager {
     private let client: FSolarAPIClient
-    private let keychain: KeychainStore
+    private let keychain: SecureStore
 
     private var session: Session?
 
@@ -12,7 +12,7 @@ actor SessionManager {
     private let userAccount = "fsolar.username"
     private let passAccount = "fsolar.password"
 
-    init(client: FSolarAPIClient, keychain: KeychainStore = KeychainStore()) {
+    init(client: FSolarAPIClient, keychain: SecureStore = KeychainStore()) {
         self.client = client
         self.keychain = keychain
     }
