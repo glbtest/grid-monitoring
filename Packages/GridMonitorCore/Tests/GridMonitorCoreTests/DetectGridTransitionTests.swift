@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import GridMonitor
+@testable import GridMonitorCore
 
 struct DetectGridTransitionTests {
 

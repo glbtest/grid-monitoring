@@ -1,4 +1,5 @@
 import SwiftUI
+import GridMonitorCore
 import SwiftData
 
 struct DashboardView: View {

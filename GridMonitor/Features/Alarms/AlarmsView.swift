@@ -1,4 +1,5 @@
 import SwiftUI
+import GridMonitorCore
 
 struct AlarmsView: View {
     @Environment(AppEnvironment.self) private var env

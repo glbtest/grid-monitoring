@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 import SwiftData
+import GridMonitorCore
 @testable import GridMonitor
 
 /// Нотифікатор-шпигун для перевірки, що сповіщення надсилаються при переходах.

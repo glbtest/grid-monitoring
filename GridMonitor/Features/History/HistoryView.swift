@@ -1,4 +1,5 @@
 import SwiftUI
+import GridMonitorCore
 import SwiftData
 
 struct HistoryView: View {

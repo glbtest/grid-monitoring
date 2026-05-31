@@ -6,42 +6,42 @@ import Foundation
 //   code == 200 → успіх, корисні дані в `data`
 //   code == 998 → токен протух → релогін (трактуємо як APIError.unauthorized)
 //   інше        → помилка (текст у `message`)
-struct APIResponse<T: Decodable>: Decodable {
-    let code: Int
-    let message: String?
-    let data: T?
+public struct APIResponse<T: Decodable>: Decodable {
+    public let code: Int
+    public let message: String?
+    public let data: T?
 }
 
 // MARK: - Логін
 
 /// Нас цікавить лише токен; решта величезного об'єкта data ігнорується.
-struct LoginData: Decodable {
-    let token: String   // напр. "Bearer_eyJ..."
+public struct LoginData: Decodable {
+    public let token: String   // напр. "Bearer_eyJ..."
 }
 
 extension LoginData {
     /// Токен містить префікс `Bearer_` і йде в заголовок `Authorization` дослівно.
-    func toSession() -> Session {
+    public func toSession() -> Session {
         Session(token: token, expiresAt: JWT.expirationDate(fromBearerToken: token))
     }
 }
 
 // MARK: - Тривоги (device_warring_list)
 
-struct AlarmListData: Decodable {
-    let dataList: [AlarmDTO]?
+public struct AlarmListData: Decodable {
+    public let dataList: [AlarmDTO]?
 }
 
-struct AlarmDTO: Decodable {
-    let warringId: String?
-    let deviceSn: String?
-    let warnCode: String?
-    let warringName: String?
-    let warringType: String?
-    let dataTime: Double?     // epoch ms
-    let level: Int?
+public struct AlarmDTO: Decodable {
+    public let warringId: String?
+    public let deviceSn: String?
+    public let warnCode: String?
+    public let warringName: String?
+    public let warringType: String?
+    public let dataTime: Double?     // epoch ms
+    public let level: Int?
 
-    func toDomain() -> Alarm? {
+    public func toDomain() -> Alarm? {
         guard let warringId, let deviceSn else { return nil }
         let date = dataTime.map { Date(timeIntervalSince1970: $0 / 1000) } ?? Date(timeIntervalSince1970: 0)
         return Alarm(
@@ -62,33 +62,33 @@ struct AlarmDTO: Decodable {
 /// (мережа + батарея); решта (PV, температури, енергії) ігнорується.
 ///
 /// Значення приходять рядками ("218.3"), тому парсимо через Double(String).
-struct RealtimeDTO: Decodable {
+public struct RealtimeDTO: Decodable {
     // Мережа (AC-in, R-фаза для 1-фазного off-grid)
-    let acRInVolt: String?
-    let acRInFreq: String?
-    let workMode: Int?
-    let workModeStr: String?
+    public let acRInVolt: String?
+    public let acRInFreq: String?
+    public let workMode: Int?
+    public let workModeStr: String?
     // Батарея — реальні дані в EMS-полях (BMS battSoc/battVolt бувають null)
-    let emsSoc: String?
-    let emsSocAvg: String?
-    let battSoc: String?
-    let emsVoltage: String?
-    let emsCurrent: String?
+    public let emsSoc: String?
+    public let emsSocAvg: String?
+    public let battSoc: String?
+    public let emsVoltage: String?
+    public let emsCurrent: String?
     // Час знімку
-    let dataTime: Double?
+    public let dataTime: Double?
 
     /// Поріг напруги мережі (В): нижче — вважаємо, що мережі немає.
     /// Діапазон входу інвертора APL:90~280В, тож 50 — безпечний поріг присутності.
-    static let mainsVoltageThreshold = 50.0
+    public static let mainsVoltageThreshold = 50.0
 
-    func toSnapshot(now: Date) throws -> RealtimeSnapshot {
+    public func toSnapshot(now: Date) throws -> RealtimeSnapshot {
         let timestamp = dataTime.map { Date(timeIntervalSince1970: $0 / 1000) } ?? now
         let gridVoltage = acRInVolt.flatMap(Double.init)
         let gridFreq = acRInFreq.flatMap(Double.init)
 
         // Стан мережі: основний сигнал — напруга на вході; як підтвердження — режим роботи.
         let voltageSaysPresent = (gridVoltage ?? 0) > Self.mainsVoltageThreshold
-        let modeSaysPresent = (workModeStr ?? "").localizedCaseInsensitiveContains("line")
+        let modeSaysPresent = (workModeStr ?? "").range(of: "line", options: .caseInsensitive) != nil
         let isPresent = voltageSaysPresent || modeSaysPresent
 
         let grid = GridStatus(

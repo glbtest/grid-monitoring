@@ -1,13 +1,9 @@
 import Foundation
 import SwiftData
-
-/// Тип події мережі.
-enum GridEventType: String, Codable, Sendable {
-    case gridLost       // мережа зникла
-    case gridRestored   // мережа з'явилась
-}
+import GridMonitorCore
 
 /// Подія зміни стану мережі. Зберігається в SwiftData для історії.
+/// `GridEventType` живе в GridMonitorCore (чистий тип).
 @Model
 final class GridEvent {
     var typeRaw: String

@@ -15,12 +15,18 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 
+packages:
+  GridMonitorCore:
+    path: Packages/GridMonitorCore
+
 targets:
   GridMonitor:
     type: application
     platform: iOS
     sources:
       - GridMonitor
+    dependencies:
+      - package: GridMonitorCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gridmonitor.app
@@ -46,6 +52,7 @@ targets:
       - GridMonitorTests
     dependencies:
       - target: GridMonitor
+      - package: GridMonitorCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gridmonitor.tests

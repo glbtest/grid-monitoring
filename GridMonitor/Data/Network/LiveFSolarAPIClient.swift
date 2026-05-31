@@ -1,4 +1,5 @@
 import Foundation
+import GridMonitorCore
 
 /// Справжній клієнт до бекенду FSolar. Каркас готовий; шляхи й мапінг вмикаються
 /// після Етапу M0. Поки `API.Path.*` == nil — кидає `APIError.notConfigured`.

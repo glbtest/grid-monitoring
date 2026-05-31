@@ -1,7 +1,7 @@
 import Foundation
 
 /// Помилки мережевого шару з людськими повідомленнями для UI.
-enum APIError: Error, LocalizedError, Equatable {
+public enum APIError: Error, LocalizedError, Equatable {
     case notConfigured          // ендпоінти ще не задокументовані (Етап M0)
     case unauthorized           // 401 — токен протух / невірні дані
     case rateLimited            // 429
@@ -9,7 +9,7 @@ enum APIError: Error, LocalizedError, Equatable {
     case decoding(String)
     case transport(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .notConfigured:
             return "API ще не налаштовано. Завершіть Етап M0 (docs/fsolar-api.md)."

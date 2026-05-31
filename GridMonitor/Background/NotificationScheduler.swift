@@ -1,4 +1,5 @@
 import Foundation
+import GridMonitorCore
 import UserNotifications
 
 /// Абстракція над локальними сповіщеннями. Виділена протоколом, щоб у майбутньому

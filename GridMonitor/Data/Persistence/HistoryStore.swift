@@ -1,4 +1,5 @@
 import Foundation
+import GridMonitorCore
 import SwiftData
 
 /// Запис і читання історії подій мережі через SwiftData.

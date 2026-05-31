@@ -1,4 +1,5 @@
 import Foundation
+import GridMonitorCore
 import SwiftUI
 import SwiftData
 
