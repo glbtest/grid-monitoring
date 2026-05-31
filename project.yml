@@ -45,3 +45,13 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gridmonitor.tests
+
+schemes:
+  GridMonitor:
+    build:
+      targets:
+        GridMonitor: all
+        GridMonitorTests: [test]
+    test:
+      targets:
+        - GridMonitorTests
