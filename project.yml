@@ -35,6 +35,8 @@ targets:
           - processing
         BGTaskSchedulerPermittedIdentifiers:
           - com.gridmonitor.grid-refresh
+        # Лише HTTPS/стандартна криптографія → уникаємо export-compliance запиту.
+        ITSAppUsesNonExemptEncryption: false
         # Бекенд працює по HTTPS; ATS лишаємо за замовчуванням (увімкненим).
 
   GridMonitorTests:

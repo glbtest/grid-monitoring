@@ -243,3 +243,34 @@ open GridMonitor.xcodeproj
 Якщо веб-API стане недоступним (зміни на бекенді / SSL-pinning) — перейти на **локальний
 Modbus** (WiFi-донгл, Modbus TCP). Це інший мережевий шар (новий клієнт за тим самим
 протоколом `FSolarAPIClient`), решта застосунку лишається.
+
+---
+
+## 12. Розповсюдження на iPhone без платного акаунта (AltStore)
+
+Для особистого користування Apple Developer Program і TestFlight не потрібні.
+
+1. Запустити workflow **«Build unsigned IPA (AltStore)»** (вкладка Actions → Run workflow,
+   або `git tag v0.1.0 && git push --tags`). Він збирає **непідписаний `.ipa`** і кладе як
+   артефакт — без жодного Apple-акаунта.
+2. Завантажити артефакт `GridMonitor-unsigned-ipa` зі сторінки запуску.
+3. Поставити на iPhone через **AltStore** (AltServer на Windows) або **SideStore** — вони
+   підпишуть `.ipa` вашим **безкоштовним Apple ID**.
+
+Обмеження безкоштовного підпису: сертифікат живе **7 днів** (AltStore/SideStore оновлюють
+автоматично), максимум **3** sideload-застосунки, remote-push недоступні (нам достатньо
+локальних сповіщень + Background App Refresh).
+
+## 13. Перевірка живого API з Windows
+
+`scripts/verify-api.ps1` (PowerShell 7+) логіниться у FSolar тим самим способом, що
+застосунок (RSA-шифрування пароля), і друкує реальні поля стану мережі/батареї та тривоги:
+
+```powershell
+pwsh ./scripts/verify-api.ps1 -UserName you@example.com
+```
+
+Пароль вводиться інтерактивно (безпечно), токен не друкується. Запустіть під час відключення,
+щоб підтвердити grid-OFF значення (`acRInVolt`≈0, `workModeStr="Battery Mode"`).
+
+> Повний план розвитку — `docs/roadmap.md`.
