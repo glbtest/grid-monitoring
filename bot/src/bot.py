@@ -6,13 +6,14 @@ import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import (
     Application,
     ApplicationBuilder,
-    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 from config import Config, load_config
@@ -50,20 +51,21 @@ def _storage(context: ContextTypes.DEFAULT_TYPE):
     return context.application.bot_data["storage"]
 
 
-def _menu_kb(subscribed: bool) -> InlineKeyboardMarkup:
-    toggle = (
-        InlineKeyboardButton("🔕 Відписатись", callback_data="unsubscribe")
-        if subscribed
-        else InlineKeyboardButton("🔔 Підписатись", callback_data="subscribe")
+# Підписи кнопок постійної (reply) клавіатури — вони ж надходять як текст від користувача.
+BTN_STATUS = "🔌 Стан"
+BTN_BATTERY = "🔋 Батарея"
+BTN_HISTORY = "🕓 Історія"
+BTN_SUBSCRIBE = "🔔 Підписатись"
+BTN_UNSUBSCRIBE = "🔕 Відписатись"
+
+
+def _menu_kb(subscribed: bool) -> ReplyKeyboardMarkup:
+    toggle = BTN_UNSUBSCRIBE if subscribed else BTN_SUBSCRIBE
+    return ReplyKeyboardMarkup(
+        [[BTN_STATUS, BTN_BATTERY], [BTN_HISTORY], [toggle]],
+        resize_keyboard=True,
+        is_persistent=True,
     )
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🔌 Стан", callback_data="status"),
-            InlineKeyboardButton("🔋 Батарея", callback_data="battery"),
-        ],
-        [InlineKeyboardButton("🕓 Історія", callback_data="history")],
-        [toggle],
-    ])
 
 
 # --- форматування ---
@@ -198,35 +200,33 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def cmd_stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _storage(context).remove_subscriber(update.effective_chat.id)
-    await update.message.reply_text("🔕 Відписано. /start — щоб підписатися знову.")
+    await update.message.reply_text(
+        "🔕 Відписано. /start — щоб підписатися знову.",
+        reply_markup=_menu_kb(False),
+    )
 
 
-# --- натискання кнопок меню ---
+# --- натискання кнопок постійного меню (надходять як текст) ---
 
-async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
+async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _allowed(update):
         return
     storage = _storage(context)
     chat_id = update.effective_chat.id
-    data = query.data
+    text = update.message.text
 
-    if data == "status":
-        await _send_status(query.message.reply_text)
-    elif data == "battery":
-        await _send_battery(query.message.reply_text)
-    elif data == "history":
-        await query.message.reply_text(_fmt_history(storage.recent_events()))
-    elif data in ("subscribe", "unsubscribe"):
-        if data == "subscribe":
-            storage.add_subscriber(chat_id)
-            await query.answer("Підписано ✅")
-        else:
-            storage.remove_subscriber(chat_id)
-            await query.answer("Відписано 🔕")
-        subscribed = chat_id in storage.subscribers()
-        await query.edit_message_reply_markup(reply_markup=_menu_kb(subscribed))
+    if text == BTN_STATUS:
+        await _send_status(update.message.reply_text)
+    elif text == BTN_BATTERY:
+        await _send_battery(update.message.reply_text)
+    elif text == BTN_HISTORY:
+        await update.message.reply_text(_fmt_history(storage.recent_events()))
+    elif text == BTN_SUBSCRIBE:
+        storage.add_subscriber(chat_id)
+        await update.message.reply_text("🔔 Підписано.", reply_markup=_menu_kb(True))
+    elif text == BTN_UNSUBSCRIBE:
+        storage.remove_subscriber(chat_id)
+        await update.message.reply_text("🔕 Відписано.", reply_markup=_menu_kb(False))
 
 
 # --- фоновий поллер ---
@@ -278,7 +278,7 @@ def main() -> None:
     app.add_handler(CommandHandler("battery", cmd_battery))
     app.add_handler(CommandHandler("history", cmd_history))
     app.add_handler(CommandHandler("stop", cmd_stop))
-    app.add_handler(CallbackQueryHandler(on_button))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 
     app.job_queue.run_repeating(
         poll_job,
