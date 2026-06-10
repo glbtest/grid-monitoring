@@ -47,6 +47,9 @@ class Snapshot:
     batt_voltage: float | None
     batt_current: float | None
     timestamp: datetime
+    batt_power: float | None = None      # emsPower, Вт
+    load_percent: int | None = None      # loadPercent, %
+    capacity: int | None = None          # totalEmsCapacity
 
 
 def _to_float(value) -> float | None:
@@ -74,6 +77,9 @@ def parse_snapshot(data: dict) -> Snapshot:
     dt_ms = data.get("dataTime")
     timestamp = datetime.fromtimestamp(dt_ms / 1000) if dt_ms else datetime.now()
 
+    load_f = _to_float(data.get("loadPercent"))
+    cap_f = _to_float(data.get("totalEmsCapacity"))
+
     return Snapshot(
         is_present=is_present,
         voltage=voltage,
@@ -83,6 +89,9 @@ def parse_snapshot(data: dict) -> Snapshot:
         batt_voltage=_to_float(data.get("emsVoltage")),
         batt_current=_to_float(data.get("emsCurrent")),
         timestamp=timestamp,
+        batt_power=_to_float(data.get("emsPower")),
+        load_percent=int(load_f) if load_f is not None else None,
+        capacity=int(cap_f) if cap_f is not None else None,
     )
 
 

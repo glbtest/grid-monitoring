@@ -42,3 +42,13 @@ def test_parse_grid_off():
 def test_parse_soc_fallback_to_avg():
     s = parse_snapshot({"acRInVolt": "230", "emsSocAvg": "55"})
     assert s.soc == 55
+
+
+def test_parse_battery_details():
+    s = parse_snapshot({
+        "acRInVolt": "218", "emsSoc": "99", "emsPower": "491",
+        "loadPercent": "21", "totalEmsCapacity": "300",
+    })
+    assert s.batt_power == 491
+    assert s.load_percent == 21
+    assert s.capacity == 300
