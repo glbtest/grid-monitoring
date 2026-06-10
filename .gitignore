@@ -30,3 +30,12 @@ docs/samples/
 
 # Локальні налаштування Claude Code
 .claude/
+
+# Python (Telegram-бот)
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+bot/.env
+bot/data/

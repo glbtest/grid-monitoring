@@ -1,0 +1,163 @@
+"""Клієнт приватного FSolar API — порт з docs/fsolar-api.md та verify-api.ps1.
+
+Логін: пароль шифрується RSA(PKCS#1) публічним ключем FSolar → base64.
+Токен має префікс `Bearer_` і йде в заголовок Authorization дослівно.
+Конверт відповідей: {code, message, data}; code 998 = токен протух → релогін.
+"""
+from __future__ import annotations
+
+import base64
+import time
+from dataclasses import dataclass
+from datetime import datetime
+
+import httpx
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.serialization import load_der_public_key
+
+BASE_URL = "https://shine-api.felicitysolar.com"
+
+# Публічний RSA-ключ FSolar (SPKI, base64) — той самий, що в iOS RSACrypto.swift.
+PUBLIC_KEY_SPKI = (
+    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnAJE68pjWZmtSg6ZJs9FZugJXC6bBSluTW6mJtt"
+    "OLOaljrdErVnM5DNN+YFzpB9pAysTErjY1bnSVuEwQSwptnqUji7Ch2qMj2n+0eCp8p6vtSh7/tFr2ul8nD"
+    "RtkoswLANAIwtUk/G85ipMpmY1W642LImnEJmGkkddlbjbjxJTZWR5hc/d9cPWb+AR77LxFFrMik3c+44v1"
+    "kQlIPFP6EjIbOvt/Lv7fHWD9JI/YzN4y1gK7C/VQdNGuikQyNg+5W3rg9ecYf9I5uLAQwY/hxeI3lbNsEre"
+    "bqKe2EbJ8AwcNIC0lDBz53Sq0ML89QapEuy3fB+upuctxLULVDCbNwIDAQAB"
+)
+
+MAINS_VOLTAGE_THRESHOLD = 50.0
+
+
+class FSolarError(Exception):
+    pass
+
+
+class _TokenExpired(Exception):
+    """Внутрішня: code == 998."""
+
+
+@dataclass
+class Snapshot:
+    is_present: bool
+    voltage: float | None
+    frequency: float | None
+    work_mode: str
+    soc: int | None
+    batt_voltage: float | None
+    batt_current: float | None
+    timestamp: datetime
+
+
+def _to_float(value) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_snapshot(data: dict) -> Snapshot:
+    """Мапінг відповіді get_device_snapshot у стан мережі/батареї (тестоване)."""
+    voltage = _to_float(data.get("acRInVolt"))
+    frequency = _to_float(data.get("acRInFreq"))
+    work_mode = (data.get("workModeStr") or "").strip()
+
+    # Стан мережі: напруга на вході > порога АБО режим "Line".
+    is_present = (voltage or 0) > MAINS_VOLTAGE_THRESHOLD or "line" in work_mode.lower()
+
+    soc_raw = data.get("emsSoc") or data.get("emsSocAvg") or data.get("battSoc")
+    soc_f = _to_float(soc_raw)
+    soc = int(soc_f) if soc_f is not None else None
+
+    dt_ms = data.get("dataTime")
+    timestamp = datetime.fromtimestamp(dt_ms / 1000) if dt_ms else datetime.now()
+
+    return Snapshot(
+        is_present=is_present,
+        voltage=voltage,
+        frequency=frequency,
+        work_mode=work_mode,
+        soc=soc,
+        batt_voltage=_to_float(data.get("emsVoltage")),
+        batt_current=_to_float(data.get("emsCurrent")),
+        timestamp=timestamp,
+    )
+
+
+def encrypt_password(plain: str, spki_b64: str = PUBLIC_KEY_SPKI) -> str:
+    key = load_der_public_key(base64.b64decode(spki_b64))
+    cipher = key.encrypt(plain.encode("utf-8"), padding.PKCS1v15())  # type: ignore[arg-type]
+    return base64.b64encode(cipher).decode("ascii")
+
+
+class FSolarClient:
+    def __init__(self, username: str, password: str, device_sn: str, device_type: str = "OG"):
+        self.username = username
+        self.password = password
+        self.device_sn = device_sn
+        self.device_type = device_type
+        self._token: str | None = None
+        self._client = httpx.AsyncClient(base_url=BASE_URL, timeout=20)
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
+
+    async def login(self) -> None:
+        body = {
+            "userName": self.username,
+            "password": encrypt_password(self.password),
+            "version": "1.0",
+        }
+        data = await self._raw_post("/userlogin", body, auth=False)
+        token = (data or {}).get("token")
+        if not token:
+            raise FSolarError("Логін не повернув токен")
+        self._token = token
+
+    async def get_snapshot(self) -> Snapshot:
+        body = {
+            "deviceSn": self.device_sn,
+            "deviceType": self.device_type,
+            "dateStr": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        data = await self._post("/device/get_device_snapshot", body)
+        return parse_snapshot(data or {})
+
+    async def get_alarms(self, days: int = 7) -> list[dict]:
+        now_ms = int(time.time() * 1000)
+        from_ms = now_ms - days * 86_400 * 1000
+        body = {
+            "pageNum": 1, "pageSize": 50, "plantName": "", "deviceSn": self.device_sn,
+            "status": "", "warringType": "", "userName": "", "orgCode": "",
+            "faultcode": "", "deviceModel": "", "deviceAlias": "",
+            "leftDate": from_ms, "rightDate": now_ms,
+        }
+        data = await self._post("/device/device_warring_list", body)
+        return (data or {}).get("dataList") or []
+
+    # --- internals ---
+
+    async def _post(self, path: str, body: dict) -> dict | None:
+        if not self._token:
+            await self.login()
+        try:
+            return await self._raw_post(path, body)
+        except _TokenExpired:
+            await self.login()
+            return await self._raw_post(path, body)
+
+    async def _raw_post(self, path: str, body: dict, auth: bool = True) -> dict | None:
+        headers = {"lang": "en_US", "source": "WEB"}
+        if auth and self._token:
+            headers["Authorization"] = self._token
+        response = await self._client.post(path, json=body, headers=headers)
+        response.raise_for_status()
+        envelope = response.json()
+        code = envelope.get("code")
+        if code == 200:
+            return envelope.get("data")
+        if code == 998:
+            raise _TokenExpired()
+        raise FSolarError(f"FSolar code={code}: {envelope.get('message')}")
