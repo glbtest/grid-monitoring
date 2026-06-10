@@ -1,6 +1,7 @@
 """Telegram-бот моніторингу електромережі через FSolar (однокористувацький режим)."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
 
@@ -237,6 +238,13 @@ async def _on_shutdown(app: Application) -> None:
 
 def main() -> None:
     from storage import Storage
+
+    # Python 3.12+/3.14: run_polling() викликає asyncio.get_event_loop(), який більше не
+    # створює цикл автоматично і кидає RuntimeError — створюємо його явно.
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
 
     app = ApplicationBuilder().token(cfg.bot_token).post_shutdown(_on_shutdown).build()
     app.bot_data["storage"] = Storage(cfg.db_path)

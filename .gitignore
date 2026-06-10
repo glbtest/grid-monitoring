@@ -39,3 +39,4 @@ __pycache__/
 venv/
 bot/.env
 bot/data/
+*.db
