@@ -9,7 +9,7 @@ from __future__ import annotations
 import base64
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -75,7 +75,12 @@ def parse_snapshot(data: dict) -> Snapshot:
     soc = int(soc_f) if soc_f is not None else None
 
     dt_ms = data.get("dataTime")
-    timestamp = datetime.fromtimestamp(dt_ms / 1000) if dt_ms else datetime.now()
+    # FSolar dataTime — справжній UTC epoch. Зберігаємо як tz-aware UTC, конвертацію
+    # в локальний пояс робить бот (config.TIMEZONE) — незалежно від поясу хоста/контейнера.
+    timestamp = (
+        datetime.fromtimestamp(dt_ms / 1000, tz=timezone.utc) if dt_ms
+        else datetime.now(timezone.utc)
+    )
 
     load_f = _to_float(data.get("loadPercent"))
     cap_f = _to_float(data.get("totalEmsCapacity"))

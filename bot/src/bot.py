@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -25,6 +26,16 @@ log = logging.getLogger("gridbot")
 
 cfg: Config = load_config()
 client = FSolarClient(cfg.fsolar_username, cfg.fsolar_password, cfg.device_sn, cfg.device_type)
+
+try:
+    TZ = ZoneInfo(cfg.timezone)
+except Exception:  # noqa: BLE001 — невідома назва поясу → UTC
+    log.warning("Невідомий TIMEZONE=%s, використовую UTC", cfg.timezone)
+    TZ = ZoneInfo("UTC")
+
+
+def _local_time(dt: datetime) -> str:
+    return dt.astimezone(TZ).strftime("%H:%M:%S")
 
 
 # --- доступ / стан ---
@@ -73,7 +84,7 @@ def _fmt_status(s: Snapshot) -> str:
         f"{grid}\n"
         f"Напруга: {volt} · Частота: {freq}\n"
         f"🔋 Батарея: {soc}\n"
-        f"Оновлено: {s.timestamp:%H:%M:%S}"
+        f"Оновлено: {_local_time(s.timestamp)}"
     )
 
 
@@ -89,14 +100,14 @@ def _fmt_battery(s: Snapshot) -> str:
         f"Напруга: {volt} · Струм: {curr}",
         f"Потужність батареї: {power}",
         f"Навантаження: {load}",
-        f"Оновлено: {s.timestamp:%H:%M:%S}",
+        f"Оновлено: {_local_time(s.timestamp)}",
     ]
     return "\n".join(line for line in lines if line)
 
 
 def _fmt_transition(event_type: str, s: Snapshot) -> str:
     soc = f" · Батарея {s.soc}%" if s.soc is not None else ""
-    when = s.timestamp.strftime("%H:%M")
+    when = s.timestamp.astimezone(TZ).strftime("%H:%M")
     if event_type == "gridLost":
         return f"⚡️ Зникла мережа о {when}{soc}"
     return f"✅ Зʼявилась мережа о {when}{soc}"
@@ -110,8 +121,20 @@ def _fmt_history(events) -> str:
         icon = "⚡️" if event_type == "gridLost" else "✅"
         label = "зникла" if event_type == "gridLost" else "зʼявилась"
         soc_str = f" ({soc}%)" if soc is not None else ""
-        lines.append(f"{icon} {ts.replace('T', ' ')} — мережа {label}{soc_str}")
+        when = _local_datetime(ts)
+        lines.append(f"{icon} {when} — мережа {label}{soc_str}")
     return "Останні події:\n" + "\n".join(lines)
+
+
+def _local_datetime(iso_ts: str) -> str:
+    """ISO-час події (UTC) → рядок у локальному поясі. Старі naive-записи лишаємо як є."""
+    try:
+        dt = datetime.fromisoformat(iso_ts)
+    except ValueError:
+        return iso_ts.replace("T", " ")
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(TZ)
+    return dt.strftime("%Y-%m-%d %H:%M")
 
 
 # --- спільні дії (команда + кнопка) ---
@@ -223,7 +246,7 @@ async def poll_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     if transition is None:
         return
 
-    storage.add_event(transition, snapshot.soc)
+    storage.add_event(transition, snapshot.soc, snapshot.timestamp)
     message = _fmt_transition(transition, snapshot)
     for chat_id in storage.subscribers():
         try:

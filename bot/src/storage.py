@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Storage:
@@ -53,10 +53,11 @@ class Storage:
 
     # --- історія ---
 
-    def add_event(self, event_type: str, soc: int | None) -> None:
+    def add_event(self, event_type: str, soc: int | None, when: datetime | None = None) -> None:
+        ts = (when or datetime.now(timezone.utc)).isoformat(timespec="seconds")
         self._db.execute(
             "INSERT INTO events(type, ts, soc) VALUES(?, ?, ?)",
-            (event_type, datetime.now().isoformat(timespec="seconds"), soc),
+            (event_type, ts, soc),
         )
         self._db.commit()
 

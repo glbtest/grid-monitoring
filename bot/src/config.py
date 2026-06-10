@@ -13,6 +13,7 @@ class Config:
     allowed_chat_id: int | None
     poll_interval_minutes: int
     db_path: str
+    timezone: str
 
 
 def load_config() -> Config:
@@ -32,4 +33,5 @@ def load_config() -> Config:
         allowed_chat_id=int(allowed) if allowed else None,
         poll_interval_minutes=int(os.environ.get("POLL_INTERVAL_MINUTES", "3")),
         db_path=os.environ.get("DB_PATH", "/data/bot.db").strip() or "/data/bot.db",
+        timezone=os.environ.get("TIMEZONE", "Europe/Kyiv").strip() or "Europe/Kyiv",
     )
